@@ -11,9 +11,8 @@ def weights_init(m): # custom weights initialization called on netG and netD
 
 
 class Generator(nn.Module):
-    def __init__(self, ngpu, nc, nz, ngf):
+    def __init__(self):
         super(Generator, self).__init__()
-        self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is Z, going into a convolution
             nn.ConvTranspose2d(nz, ngf * 8, 4, 1, 0, bias=False),
@@ -42,9 +41,8 @@ class Generator(nn.Module):
 
 
 class Discriminator(nn.Module):
-    def __init__(self, ngpu, nc, ndf):
+    def __init__(self):
         super(Discriminator, self).__init__()
-        self.ngpu = ngpu
         self.main = nn.Sequential(
             # input is (nc) x 64 x 64
             nn.Conv2d(nc, ndf, 4, 2, 1, bias=False),
