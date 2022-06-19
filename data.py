@@ -1,13 +1,14 @@
+import os
+import time
+
+import requests
 from selenium import webdriver
 from selenium.webdriver.chrome.service import Service
 from selenium.webdriver.common.by import By
-import os
-import requests
-import time
 
 option = webdriver.ChromeOptions()
 option.add_argument("headless")
-service = Service("./chromedriver")
+service = Service("chromedriver")
 driver = webdriver.Chrome(service=service, options=option)
 
 driver.get("https://howrare.is")
