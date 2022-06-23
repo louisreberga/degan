@@ -1,27 +1,11 @@
-import config
 import torch
-import torchvision
-from scipy.stats import truncnorm
-from torchvision.utils import save_image
+import numpy as np
+from PIL import Image
 
 
-# Print losses occasionally and print to tensorboard
-def plot_to_tensorboard(
-        writer, loss_critic, loss_gen, real, fake, tensorboard_step
-):
-    writer.add_scalar("Loss Critic", loss_critic, global_step=tensorboard_step)
-
-    with torch.no_grad():
-        # take out (up to) 8 examples to plot
-        img_grid_real = torchvision.utils.make_grid(real[:8], normalize=True)
-        img_grid_fake = torchvision.utils.make_grid(fake[:8], normalize=True)
-        writer.add_image("Real", img_grid_real, global_step=tensorboard_step)
-        writer.add_image("Fake", img_grid_fake, global_step=tensorboard_step)
-
-
-def gradient_penalty(critic, real, fake, alpha, train_step, device="cpu"):
+def gradient_penalty(critic, real, fake, alpha, train_step):
     BATCH_SIZE, C, H, W = real.shape
-    beta = torch.rand((BATCH_SIZE, 1, 1, 1)).repeat(1, C, H, W).to(device)
+    beta = torch.rand((BATCH_SIZE, 1, 1, 1)).repeat(1, C, H, W).cuda()
     interpolated_images = real * beta + fake.detach() * (1 - beta)
     interpolated_images.requires_grad_(True)
 
@@ -29,21 +13,25 @@ def gradient_penalty(critic, real, fake, alpha, train_step, device="cpu"):
     mixed_scores = critic(interpolated_images, alpha, train_step)
 
     # Take the gradient of the scores with respect to the images
-    gradient = torch.autograd.grad(
-        inputs=interpolated_images,
-        outputs=mixed_scores,
-        grad_outputs=torch.ones_like(mixed_scores),
-        create_graph=True,
-        retain_graph=True,
-    )[0]
+    gradient = torch.autograd.grad(inputs=interpolated_images, outputs=mixed_scores,
+                                   grad_outputs=torch.ones_like(mixed_scores), create_graph=True, retain_graph=True)[0]
     gradient = gradient.view(gradient.shape[0], -1)
     gradient_norm = gradient.norm(2, dim=1)
-    gradient_penalty = torch.mean((gradient_norm - 1) ** 2)
-    return gradient_penalty
+
+    return torch.mean((gradient_norm - 1) ** 2)
 
 
-def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
-    print("=> Saving checkpoint")
+def save_prediction(fixed_noise, save_path, generator, alpha, step, img_size, epoch):
+    prediction = generator(fixed_noise, alpha, step)
+    prediction = prediction.squeeze().detach().cpu().numpy()
+    prediction = prediction.transpose(1, 2, 0)
+    img = np.uint8((prediction + 1) * 255 / 2)
+    x = Image.fromarray(img).convert('RGB')
+    x = x.resize((256, 256), resample=Image.NEAREST)
+    x.save(f"{save_path}/trainings/{img_size}x{img_size}_{epoch}.jpg")
+
+
+def save_checkpoint(model, optimizer, filename):
     checkpoint = {
         "state_dict": model.state_dict(),
         "optimizer": optimizer.state_dict(),
@@ -52,28 +40,8 @@ def save_checkpoint(model, optimizer, filename="my_checkpoint.pth.tar"):
 
 
 def load_checkpoint(checkpoint_file, model, optimizer, lr):
-    print("=> Loading checkpoint")
     checkpoint = torch.load(checkpoint_file, map_location="cuda")
     model.load_state_dict(checkpoint["state_dict"])
     optimizer.load_state_dict(checkpoint["optimizer"])
-
-    # If we don't do this then it will just have learning rate of old checkpoint
-    # and it will lead to many hours of debugging \:
     for param_group in optimizer.param_groups:
         param_group["lr"] = lr
-
-
-def generate_examples(gen, steps, truncation=0.7, n=100):
-    """
-    Tried using truncation trick here but not sure it actually helped anything, you can
-    remove it if you like and just sample from torch.randn
-    """
-    gen.eval()
-    alpha = 1.0
-    for i in range(n):
-        with torch.no_grad():
-            noise = torch.tensor(truncnorm.rvs(-truncation, truncation, size=(1, config.Z_DIM, 1, 1)),
-                                 device=config.DEVICE, dtype=torch.float32)
-            img = gen(noise, alpha, steps)
-            save_image(img * 0.5 + 0.5, f"saved_examples/img_{i}.png")
-    gen.train()

@@ -1,5 +1,3 @@
-from math import log2
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -7,15 +5,14 @@ import torch.nn.functional as F
 factors = [1, 1, 1, 1, 1 / 2, 1 / 4, 1 / 8]
 
 
-class WSConv2d(nn.Module):
-    def __init__(self, in_channels, out_channels, kernel_size=3, stride=1, padding=1, gain=2):
-        super(WSConv2d, self).__init__()
+class EqualizedLearningRateConv2d(nn.Module):
+    def __init__(self, in_channels, out_channels, kernel_size=1, stride=1, padding=0, gain=2):
+        super(EqualizedLearningRateConv2d, self).__init__()
         self.conv = nn.Conv2d(in_channels, out_channels, kernel_size, stride, padding)
         self.scale = (gain / (in_channels * (kernel_size ** 2))) ** 0.5
         self.bias = self.conv.bias
         self.conv.bias = None
 
-        # initialize conv layer
         nn.init.normal_(self.conv.weight)
         nn.init.zeros_(self.bias)
 
@@ -35,17 +32,17 @@ class PixelNorm(nn.Module):
 class ConvBlock(nn.Module):
     def __init__(self, in_channels, out_channels, use_pixelnorm=True):
         super(ConvBlock, self).__init__()
-        self.use_pn = use_pixelnorm
-        self.conv1 = WSConv2d(in_channels, out_channels)
-        self.conv2 = WSConv2d(out_channels, out_channels)
+        self.use_pixelnorm = use_pixelnorm
+        self.conv1 = EqualizedLearningRateConv2d(in_channels, out_channels, kernel_size=3, padding=1)
+        self.conv2 = EqualizedLearningRateConv2d(out_channels, out_channels, kernel_size=3, padding=1)
         self.leaky = nn.LeakyReLU(0.2)
-        self.pn = PixelNorm()
+        self.pixelnorm = PixelNorm()
 
     def forward(self, x):
         x = self.leaky(self.conv1(x))
-        x = self.pn(x) if self.use_pn else x
+        x = self.pixelnorm(x) if self.use_pixelnorm else x
         x = self.leaky(self.conv2(x))
-        x = self.pn(x) if self.use_pn else x
+        x = self.pixelnorm(x) if self.use_pixelnorm else x
         return x
 
 
@@ -53,36 +50,27 @@ class Generator(nn.Module):
     def __init__(self, z_dim, in_channels, img_channels=3):
         super(Generator, self).__init__()
 
-        # initial takes 1x1 -> 4x4
         self.initial = nn.Sequential(
             PixelNorm(),
             nn.ConvTranspose2d(z_dim, in_channels, 4, 1, 0),
             nn.LeakyReLU(0.2),
-            WSConv2d(in_channels, in_channels, kernel_size=3, stride=1, padding=1),
+            EqualizedLearningRateConv2d(in_channels, in_channels, kernel_size=3, padding=1),
             nn.LeakyReLU(0.2),
-            PixelNorm(),
+            PixelNorm()
         )
 
-        self.initial_rgb = WSConv2d(
-            in_channels, img_channels, kernel_size=1, stride=1, padding=0
-        )
-        self.prog_blocks, self.rgb_layers = (
-            nn.ModuleList([]),
-            nn.ModuleList([self.initial_rgb]),
-        )
+        self.initial_rgb = EqualizedLearningRateConv2d(in_channels, img_channels)
+        self.prog_blocks, self.rgb_layers = (nn.ModuleList([]), nn.ModuleList([self.initial_rgb]))
 
-        for i in range(
-            len(factors) - 1
-        ):  # -1 to prevent index error because of factors[i+1]
-            conv_in_c = int(in_channels * factors[i])
-            conv_out_c = int(in_channels * factors[i + 1])
-            self.prog_blocks.append(ConvBlock(conv_in_c, conv_out_c))
+        for i in range(len(factors) - 1):
+            conv_in_channels = int(in_channels * factors[i])
+            conv_out_channels = int(in_channels * factors[i + 1])
+            self.prog_blocks.append(ConvBlock(conv_in_channels, conv_out_channels))
             self.rgb_layers.append(
-                WSConv2d(conv_out_c, img_channels, kernel_size=1, stride=1, padding=0)
+                EqualizedLearningRateConv2d(conv_out_channels, img_channels)
             )
 
     def fade_in(self, alpha, upscaled, generated):
-        # alpha should be scalar within [0, 1], and upscale.shape == generated.shape
         return torch.tanh(alpha * generated + (1 - alpha) * upscaled)
 
     def forward(self, x, alpha, steps):
@@ -100,9 +88,9 @@ class Generator(nn.Module):
         return self.fade_in(alpha, final_upscaled, final_out)
 
 
-class Discriminator(nn.Module):
+class Critic(nn.Module):
     def __init__(self, in_channels, img_channels=3):
-        super(Discriminator, self).__init__()
+        super(Critic, self).__init__()
         self.prog_blocks, self.rgb_layers = nn.ModuleList([]), nn.ModuleList([])
         self.leaky = nn.LeakyReLU(0.2)
 
@@ -110,20 +98,18 @@ class Discriminator(nn.Module):
             conv_in = int(in_channels * factors[i])
             conv_out = int(in_channels * factors[i - 1])
             self.prog_blocks.append(ConvBlock(conv_in, conv_out, use_pixelnorm=False))
-            self.rgb_layers.append(WSConv2d(img_channels, conv_in, kernel_size=1, stride=1, padding=0))
+            self.rgb_layers.append(EqualizedLearningRateConv2d(img_channels, conv_in))
 
-        self.initial_rgb = WSConv2d(img_channels, in_channels, kernel_size=1, stride=1, padding=0)
+        self.initial_rgb = EqualizedLearningRateConv2d(img_channels, in_channels)
         self.rgb_layers.append(self.initial_rgb)
-        self.avg_pool = nn.AvgPool2d(
-            kernel_size=2, stride=2
-        )
+        self.avg_pool = nn.AvgPool2d(kernel_size=2, stride=2)
 
         self.final_block = nn.Sequential(
-            WSConv2d(in_channels + 1, in_channels, kernel_size=3, padding=1),
+            EqualizedLearningRateConv2d(in_channels + 1, in_channels, kernel_size=3, padding=1),
             nn.LeakyReLU(0.2),
-            WSConv2d(in_channels, in_channels, kernel_size=4, padding=0, stride=1),
+            EqualizedLearningRateConv2d(in_channels, in_channels, kernel_size=4),
             nn.LeakyReLU(0.2),
-            WSConv2d(in_channels, 1, kernel_size=1, padding=0, stride=1)
+            EqualizedLearningRateConv2d(in_channels, 1)
         )
 
     def fade_in(self, alpha, downscaled, out):
