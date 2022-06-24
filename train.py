@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 from model import Critic, Generator
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from utils import gradient_penalty, load_checkpoint, save_checkpoint, save_prediction, load_alpha, save_alpha
+import utils
 torch.backends.cudnn.benchmarks = True
 
 
@@ -26,11 +26,11 @@ def get_data(image_size, data_path, batch_sizes, num_workers):
     return dataloader
 
 
-def wgan_gp_loss(real, fake, lambda_gp, gp):
-    return torch.mean(fake) - torch.mean(real) + lambda_gp * gp + (0.001 * torch.mean(real ** 2))
+def wgan_gp_loss(real, fake, l_gp, gp):
+    return torch.mean(fake) - torch.mean(real) + l_gp * gp + (0.001 * torch.mean(real ** 2))
 
 
-def train(critic, generator, z_dim, dataloader, step, alpha, lambda_gp, pro_epochs, optim_critic, optim_generator,
+def train(critic, generator, z_dim, dataloader, step, alpha, l_gp, pro_epochs, optim_critic, optim_generator,
           scaler_generator, scaler_critic):
 
     loop = tqdm(dataloader, leave=True)
@@ -44,8 +44,8 @@ def train(critic, generator, z_dim, dataloader, step, alpha, lambda_gp, pro_epoc
             fake = generator(noise, alpha, step)
             critic_real = critic(real, alpha, step)
             critic_fake = critic(fake.detach(), alpha, step)
-            gp = gradient_penalty(critic, real, fake, alpha, step)
-            loss_critic = wgan_gp_loss(critic_real, critic_fake, lambda_gp, gp)
+            gp = utils.gradient_penalty(critic, real, fake, alpha, step)
+            loss_critic = wgan_gp_loss(critic_real, critic_fake, l_gp, gp)
         optim_critic.zero_grad()
         scaler_critic.scale(loss_critic).backward()
         scaler_critic.step(optim_critic)
@@ -67,8 +67,8 @@ def train(critic, generator, z_dim, dataloader, step, alpha, lambda_gp, pro_epoc
     return alpha
 
 
-def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_dim, in_channels, lambda_gp, pro_epochs,
-         fixed_noise, num_workers, load_generator=None, load_critic=None, load_epoch=None):
+def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_dim, in_channels, l_gp, start_epoch,
+         pro_epochs, fixed_noise, num_workers, load_generator=None, load_critic=None, load_alpha=False, load_epoch=None):
 
     step = int(log2(start_img_size / 4))
     generator = Generator(z_dim, in_channels).cuda()
@@ -79,8 +79,8 @@ def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_d
     scaler_critic = torch.cuda.amp.GradScaler()
 
     if load_generator is not None and load_critic is not None:
-        load_checkpoint(load_generator, generator, optim_generator, lr)
-        load_checkpoint(load_critic, critic, optim_critic, lr)
+        utils.load_checkpoint(load_generator, generator, optim_generator, lr)
+        utils.load_checkpoint(load_critic, critic, optim_critic, lr)
 
     generator.train()
     critic.train()
@@ -88,8 +88,8 @@ def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_d
     print("Starting training loop...")
 
     alpha = None
-    if load_epoch is not None:
-        alpha = load_alpha(start_img_size, load_epoch)
+    if load_alpha:
+        alpha = utils.load_alpha(start_img_size, load_epoch)
 
     for num_epochs in pro_epochs[step:step+num_updates+1]:
         if alpha is None:
@@ -104,24 +104,24 @@ def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_d
         if not os.path.exists(f"{save_path}/trainings/{img_size}x{img_size}"):
             os.mkdir(f"{save_path}/trainings/{img_size}x{img_size}")
 
-        for epoch in range(1, num_epochs+1):
+        for epoch in range(start_epoch, num_epochs+1):
             print(f"\n========== {epoch}/{num_epochs} ==========")
             # save the current alpha to do the prediction
             current_alpha = alpha
 
             # train the model
-            alpha = train(critic, generator, z_dim, dataloader, step, alpha, lambda_gp, pro_epochs,
+            alpha = train(critic, generator, z_dim, dataloader, step, alpha, l_gp, pro_epochs,
                           optim_critic, optim_generator, scaler_generator, scaler_critic)
 
             # save the generator and critic
             filename_generator = f"{save_path}/trainings/{img_size}x{img_size}/generator_{epoch}.pth"
-            save_checkpoint(generator, optim_generator, filename=filename_generator)
+            utils.save_checkpoint(generator, optim_generator, filename=filename_generator)
             filename_critic = f"{save_path}/trainings/{img_size}x{img_size}/critic_{epoch}.pth"
-            save_checkpoint(critic, optim_critic, filename=filename_critic)
-            save_alpha(alpha, epoch)
+            utils.save_checkpoint(critic, optim_critic, filename=filename_critic)
+            utils.save_alpha(alpha, epoch)
 
             # save the prediction
-            save_prediction(fixed_noise, save_path, generator, current_alpha, step, img_size, epoch)
+            utils.save_prediction(fixed_noise, save_path, generator, current_alpha, step, img_size, epoch)
 
             print(f"\nModel(s) + prediction + alpha = {alpha} saved!")
 
