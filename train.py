@@ -126,3 +126,4 @@ def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_d
             print(f"\nModel(s) + prediction + alpha = {alpha} saved!")
 
         step += 1
+        start_epoch = 1
