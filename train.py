@@ -8,7 +8,7 @@ import torchvision.transforms as transforms
 from model import Critic, Generator
 from torch.utils.data import DataLoader
 from tqdm import tqdm
-from utils import gradient_penalty, load_checkpoint, save_checkpoint, save_prediction
+from utils import gradient_penalty, load_checkpoint, save_checkpoint, save_prediction, load_alpha, save_alpha
 torch.backends.cudnn.benchmarks = True
 
 
@@ -67,8 +67,8 @@ def train(critic, generator, z_dim, dataloader, step, alpha, lambda_gp, pro_epoc
     return alpha
 
 
-def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_dim, in_channels, lambda_gp,
-         pro_epochs, fixed_noise, num_workers, load_generator=None, load_critic=None):
+def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_dim, in_channels, lambda_gp, pro_epochs,
+         fixed_noise, num_workers, load_generator=None, load_critic=None, load_epoch=None):
 
     step = int(log2(start_img_size / 4))
     generator = Generator(z_dim, in_channels).cuda()
@@ -87,8 +87,14 @@ def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_d
 
     print("Starting training loop...")
 
+    alpha = None
+    if load_epoch is not None:
+        alpha = load_alpha(start_img_size, load_epoch)
+
     for num_epochs in pro_epochs[step:step+num_updates+1]:
-        alpha = 1e-5
+        if alpha is None:
+            alpha = 1e-5
+
         img_size = 4 * 2 ** step
 
         print(f"\nStarting image size: {img_size}x{img_size}")
@@ -107,18 +113,16 @@ def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_d
             alpha = train(critic, generator, z_dim, dataloader, step, alpha, lambda_gp, pro_epochs,
                           optim_critic, optim_generator, scaler_generator, scaler_critic)
 
-            # save the generator
+            # save the generator and critic
             filename_generator = f"{save_path}/trainings/{img_size}x{img_size}/generator_{epoch}.pth"
             save_checkpoint(generator, optim_generator, filename=filename_generator)
-
-            # save the critic only for the last
-            if epoch == num_epochs:
-                filename_critic = f"{save_path}/trainings/{img_size}x{img_size}/critic_{epoch}.pth"
-                save_checkpoint(critic, optim_critic, filename=filename_critic)
+            filename_critic = f"{save_path}/trainings/{img_size}x{img_size}/critic_{epoch}.pth"
+            save_checkpoint(critic, optim_critic, filename=filename_critic)
+            save_alpha(alpha, epoch)
 
             # save the prediction
             save_prediction(fixed_noise, save_path, generator, current_alpha, step, img_size, epoch)
 
-            print(f"\nModel(s) + prediction saved!")
+            print(f"\nModel(s) + prediction + alpha = {alpha} saved!")
 
         step += 1

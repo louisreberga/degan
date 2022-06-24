@@ -1,6 +1,7 @@
 import torch
 import numpy as np
 from PIL import Image
+import json
 
 
 def gradient_penalty(critic, real, fake, alpha, train_step):
@@ -37,6 +38,19 @@ def save_checkpoint(model, optimizer, filename):
         "optimizer": optimizer.state_dict(),
     }
     torch.save(checkpoint, filename)
+
+
+def save_alpha(alpha, epoch):
+    with open(f"alpha_{epoch}.json", "w") as f:
+        json.dump({"alpha", alpha}, f)
+
+
+def load_alpha(img_size, epoch):
+    with open(f"{img_size}x{img_size}/alpha_{epoch}.json", "r") as f:
+        alpha = json.loads(f.read())
+        alpha = alpha.get("alpha")
+
+    return alpha
 
 
 def load_checkpoint(checkpoint_file, model, optimizer, lr):
