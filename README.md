@@ -27,3 +27,4 @@ GIFs showing ProGAN training evolution:
 </p>
 
 ## References
+Tero Karras, Timo Aila, Samuli Laine, Jaakko Lehtinen (2017). Progressive Growing of GANs for Improved Quality, Stability, and Variation
