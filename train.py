@@ -89,7 +89,7 @@ def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_d
 
     alpha = None
     if load_alpha:
-        alpha = utils.load_alpha(start_img_size, load_epoch)
+        alpha = utils.load_alpha(save_path, start_img_size, load_epoch)
 
     for num_epochs in pro_epochs[step:step+num_updates+1]:
         if alpha is None:
@@ -118,7 +118,7 @@ def main(start_img_size, num_updates, data_path, save_path, lr, batch_sizes, z_d
             utils.save_checkpoint(generator, optim_generator, filename=filename_generator)
             filename_critic = f"{save_path}/trainings/{img_size}x{img_size}/critic_{epoch}.pth"
             utils.save_checkpoint(critic, optim_critic, filename=filename_critic)
-            utils.save_alpha(alpha, epoch)
+            utils.save_alpha(alpha, save_path, img_size, epoch)
 
             # save the prediction
             utils.save_prediction(fixed_noise, save_path, generator, current_alpha, step, img_size, epoch)

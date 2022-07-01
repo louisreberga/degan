@@ -73,18 +73,18 @@ class Generator(nn.Module):
     def fade_in(self, alpha, upscaled, generated):
         return torch.tanh(alpha * generated + (1 - alpha) * upscaled)
 
-    def forward(self, x, alpha, steps):
+    def forward(self, x, alpha, step):
         out = self.initial(x)
 
-        if steps == 0:
+        if step == 0:
             return self.initial_rgb(out)
 
-        for step in range(steps):
+        for i in range(step):
             upscaled = F.interpolate(out, scale_factor=2, mode="nearest")
-            out = self.prog_blocks[step](upscaled)
+            out = self.prog_blocks[i](upscaled)
 
-        final_upscaled = self.rgb_layers[steps - 1](upscaled)
-        final_out = self.rgb_layers[steps](out)
+        final_upscaled = self.rgb_layers[step - 1](upscaled)
+        final_out = self.rgb_layers[step](out)
         return self.fade_in(alpha, final_upscaled, final_out)
 
 
@@ -119,11 +119,11 @@ class Critic(nn.Module):
         batch_statistics = (torch.std(x, dim=0).mean().repeat(x.shape[0], 1, x.shape[2], x.shape[3]))
         return torch.cat([x, batch_statistics], dim=1)
 
-    def forward(self, x, alpha, steps):
-        cur_step = len(self.prog_blocks) - steps
+    def forward(self, x, alpha, step):
+        cur_step = len(self.prog_blocks) - step
         out = self.leaky(self.rgb_layers[cur_step](x))
 
-        if steps == 0:
+        if step == 0:
             out = self.minibatch_std(out)
             return self.final_block(out).view(out.shape[0], -1)
 

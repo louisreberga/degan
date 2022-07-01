@@ -40,13 +40,13 @@ def save_checkpoint(model, optimizer, filename):
     torch.save(checkpoint, filename)
 
 
-def save_alpha(alpha, epoch):
-    with open(f"alpha_{epoch}.json", "w") as f:
-        json.dump({"alpha", alpha}, f)
+def save_alpha(alpha, save_path, img_size, epoch):
+    with open(f"{save_path}/trainings/{img_size}x{img_size}/alpha_{epoch}.json", "w") as f:
+        json.dump({"alpha": alpha}, f)
 
 
-def load_alpha(img_size, epoch):
-    with open(f"{img_size}x{img_size}/alpha_{epoch}.json", "r") as f:
+def load_alpha(save_path, img_size, epoch):
+    with open(f"{save_path}/trainings/{img_size}x{img_size}/alpha_{epoch}.json", "r") as f:
         alpha = json.loads(f.read())
         alpha = alpha.get("alpha")
 
