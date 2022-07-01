@@ -1,5 +1,7 @@
 # DeGAN: a ProGAN to generate DeGods NFTs
 
+The objective of the project was to generate new DeGods NFT using a GAN. First, I have developed a DCGAN but the GAN architecture is not not suited to generate high-resolution images. So, I have developed this ProGAN model to generate 256x256 pixels images.    
+
 ## Results
 
 Real DeGods NFT images:
