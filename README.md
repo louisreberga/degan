@@ -16,7 +16,7 @@ Generated DeGods NFT:
   <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_3.jpg" width="200" />
 </p>
 
-GIFs showing ProGAN training evolution:
+Other generated DeGods NFT GIFs showing ProGAN training evolution:
 <p float="left">
   <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_0.gif" width="200" />
   <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_1.gif" width="200" />
