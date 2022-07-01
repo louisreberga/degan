@@ -27,5 +27,5 @@ GIFs showing ProGAN training evolution:
 </p>
 
 ## References
-Tero Karras, Timo Aila, Samuli Laine, Jaakko Lehtinen (2017). Progressive Growing of GANs for Improved Quality, Stability, and Variation \
-Sarah Wolf (2018) ProGAN: How NVIDIA Generated Images of Unprecedented Quality
+1 - Tero Karras, Timo Aila, Samuli Laine, Jaakko Lehtinen (2017). Progressive Growing of GANs for Improved Quality, Stability, and Variation \
+2 - Sarah Wolf (2018) ProGAN: How NVIDIA Generated Images of Unprecedented Quality
