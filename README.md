@@ -1,1 +1,1 @@
-# DeGAN: a ProGan model to generate new DeGods NFTs
+# DeGAN: a ProGAN model to generate new DeGods NFTs
