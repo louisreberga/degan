@@ -2,7 +2,7 @@
 
 Real DeGods NFT images:
 <p float="left">
-  <img src="images/DeGods_0" width="100" />
+  <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGods_0.jpg" width="100" />
   <img src="images/DeGods_0" width="100" /> 
   <img src="images/DeGods_0" width="100" />
   <img src="images/DeGods_0" width="100" />
