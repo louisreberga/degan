@@ -1,4 +1,4 @@
-# DeGAN: a ProGAN to generate DeGods NFTs
+# DeGAN: a ProGAN to generate DeGods
 
 The objective of the project was to generate new DeGods NFTs using a GAN. First, I have developed a DCGAN but this GAN architecture is not suited to generate high-resolution images. So, I have developed this ProGAN model to generate 256x256 pixels images. The training took 2 days using a GPU on Google Colab.    
 
@@ -18,14 +18,6 @@ Generated DeGods NFT:
   <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_1.jpg" width="200" />
   <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_2.jpg" width="200" />
   <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_3.jpg" width="200" />
-</p>
-
-GIFs showing ProGAN training evolution:
-<p float="left">
-  <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_0.gif" width="200" />
-  <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_1.gif" width="200" />
-  <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_2.gif" width="200" />
-  <img src="https://raw.githubusercontent.com/louisreberga/degan/main/images/DeGAN_3.gif" width="200" />
 </p>
 
 ## References
